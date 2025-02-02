@@ -1,4 +1,4 @@
-import "../styles/globals.css";
+import "/styles/globals.css";
 import { useState, useEffect } from "react";
 import liff from "@line/liff";
 
