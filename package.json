@@ -9,5 +9,12 @@
   "keywords": [
     "LINE",
     "LIFF"
-  ]
+  ],
+  "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.9.3"
+  },
+  "dependencies": {
+    "lucide-react": "^0.473.0",
+    "ui": "github:shadcn/ui"
+  }
 }

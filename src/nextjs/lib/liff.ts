@@ -1,22 +1,36 @@
 import liff from "@line/liff"
 
+const LIFF_ID = process.env.NEXT_PUBLIC_LIFF_ID
+
 export async function initializeLiff(): Promise<void> {
   try {
-    await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID as string })
-    if (!liff.isLoggedIn()) {
-      await liff.login()
-    }
+    await liff.init({
+      liffId: LIFF_ID as string,
+    })
+    console.log("LIFF initialization succeeded.")
   } catch (error) {
-    console.error("LIFFの初期化に失敗しました", error)
+    console.error("LIFF initialization failed:", error)
     throw error
   }
 }
 
 export async function getLiffUserId(): Promise<string> {
   if (!liff.isLoggedIn()) {
-    throw new Error("ユーザーがログインしていません")
+    console.log("User is not logged in. Redirecting to login...")
+    liff.login()
+    return ""
   }
-  const profile = await liff.getProfile()
-  return profile.userId
+
+  try {
+    const profile = await liff.getProfile()
+    return profile.userId
+  } catch (error) {
+    console.error("Error getting user profile:", error)
+    throw error
+  }
+}
+
+export function isLoggedIn(): boolean {
+  return liff.isLoggedIn()
 }
 

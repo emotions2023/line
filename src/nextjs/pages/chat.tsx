@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { BottomNav } from "@/components/bottom-nav"
@@ -8,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { sendMessageToDify } from "@/lib/dify"
 import { SegmentViewer } from "@/components/segment-viewer"
 import { ExternalLink } from "lucide-react"
-import { initializeLiff, getLiffUserId } from "@/lib/liff"
+import { initializeLiff, getLiffUserId, isLoggedIn } from "@/lib/liff"
 
 interface Reference {
   dataset_name: string
@@ -37,20 +38,35 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [selectedDocument, setSelectedDocument] = useState<SelectedDocument | null>(null)
+  const [isInitializing, setIsInitializing] = useState(true)
 
   useEffect(() => {
     const init = async () => {
       try {
         await initializeLiff()
-        const id = await getLiffUserId()
-        setUserId(id)
+        if (isLoggedIn()) {
+          const id = await getLiffUserId()
+          setUserId(id)
+        }
       } catch (error) {
         console.error("LIFFの初期化に失敗しました", error)
+      } finally {
+        setIsInitializing(false)
       }
     }
 
     init()
   }, [])
+
+  const handleLogin = async () => {
+    try {
+      await getLiffUserId()
+      const id = await getLiffUserId()
+      setUserId(id)
+    } catch (error) {
+      console.error("ログインに失敗しました", error)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -109,8 +125,17 @@ export default function ChatPage() {
     )
   }
 
+  if (isInitializing) {
+    return <div className="flex justify-center items-center h-screen">初期化中...</div>
+  }
+
   if (!userId) {
-    return <div className="flex justify-center items-center h-screen">読み込み中...</div>
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <p className="mb-4">LINEアカウントでログインしてください</p>
+        <Button onClick={handleLogin}>ログイン</Button>
+      </div>
+    )
   }
 
   return (
