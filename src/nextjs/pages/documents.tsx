@@ -59,20 +59,6 @@ export default function DocumentsPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <header className="sticky top-0 z-50 flex items-center justify-between w-full h-14 px-4 border-b bg-background">
-        <div className="flex items-center gap-2">
-          <Link href="/">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <h1 className="text-lg font-semibold">ドキュメント一覧</h1>
-        </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <Share2 className="h-4 w-4" />
-        </Button>
-      </header>
-
       <main className="flex-1 overflow-auto pb-16">
         <div className="container max-w-md mx-auto p-4">
           {isLoading ? (

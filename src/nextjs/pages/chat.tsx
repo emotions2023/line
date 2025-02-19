@@ -1,27 +1,62 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { BottomNav } from "@/components/bottom-nav"
 import { Input } from "@/components/ui/input"
 import { sendMessageToDify } from "@/lib/dify"
+import { SegmentViewer } from "@/components/segment-viewer"
+import { ExternalLink } from "lucide-react"
+import { initializeLiff, getLiffUserId } from "@/lib/liff"
+
+interface Reference {
+  dataset_name: string
+  document_name: string
+  document_id: string
+  segment_id: string
+  dataset_id: string
+}
 
 interface Message {
   id: string
   text: string
   isUser: boolean
+  references?: Reference[]
+}
+
+interface SelectedDocument {
+  id: string
+  name: string
+  datasetId: string
 }
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [selectedDocument, setSelectedDocument] = useState<SelectedDocument | null>(null)
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        await initializeLiff()
+        const id = await getLiffUserId()
+        setUserId(id)
+      } catch (error) {
+        console.error("LIFFの初期化に失敗しました", error)
+      }
+    }
+
+    init()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || isLoading || !userId) return
 
-    const userMessage = {
+    const userMessage: Message = {
       id: Date.now().toString(),
       text: input,
       isUser: true,
@@ -32,34 +67,82 @@ export default function ChatPage() {
     setIsLoading(true)
 
     try {
-      const result = await sendMessageToDify(input)
+      const result = await sendMessageToDify(input, userId)
       if (result.message) {
-        setMessages((prev) => [...prev, { id: Date.now().toString(), text: result.message, isUser: false }])
+        const botMessage: Message = {
+          id: Date.now().toString(),
+          text: result.message,
+          isUser: false,
+          references: result.retriever_resources,
+        }
+        setMessages((prev) => [...prev, botMessage])
       }
     } catch (error) {
       console.error("Error:", error)
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now().toString(), text: "申し訳ありません。エラーが発生しました。", isUser: false },
-      ])
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        text: "申し訳ありません。エラーが発生しました。",
+        isUser: false,
+      }
+      setMessages((prev) => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
     }
   }
 
+  const handleDocumentClick = (documentId: string, documentName: string, datasetId: string) => {
+    setSelectedDocument({
+      id: documentId,
+      name: documentName,
+      datasetId,
+    })
+  }
+
+  if (selectedDocument) {
+    return (
+      <SegmentViewer
+        documentId={selectedDocument.id}
+        documentName={selectedDocument.name}
+        onClose={() => setSelectedDocument(null)}
+        datasetId={selectedDocument.datasetId}
+      />
+    )
+  }
+
+  if (!userId) {
+    return <div className="flex justify-center items-center h-screen">読み込み中...</div>
+  }
+
   return (
     <div className="flex flex-col h-screen bg-background">
-      <div className="p-4 border-b">
-        <h1 className="text-lg font-bold">AIチャット</h1>
-      </div>
-
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
           <div key={message.id} className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}>
             <div
-              className={`max-w-[80%] p-3 rounded-lg ${message.isUser ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+              className={`max-w-[80%] p-3 rounded-lg ${
+                message.isUser ? "bg-primary text-primary-foreground" : "bg-muted"
+              }`}
             >
               {message.text}
+              {message.references && message.references.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-border">
+                  <p className="text-xs text-muted-foreground font-medium">引用：</p>
+                  <ul className="mt-1 space-y-1">
+                    {message.references.map((ref, index) => (
+                      <li key={index}>
+                        <button
+                          onClick={() => handleDocumentClick(ref.document_id, ref.document_name, ref.dataset_id)}
+                          className="text-xs text-primary hover:underline flex items-center gap-2"
+                        >
+                          <span className="flex-shrink-0">📄</span>
+                          <span>{ref.document_name}</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -86,7 +169,7 @@ export default function ChatPage() {
               className="flex-1"
               disabled={isLoading}
             />
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading} className="bg-[#FFB5B5] text-black">
               {isLoading ? "送信中..." : "送信"}
             </Button>
           </div>
@@ -94,8 +177,6 @@ export default function ChatPage() {
       </div>
 
       <div className="h-16">
-        {" "}
-        {/* BottomNavの高さ分のスペーサー */}
         <BottomNav />
       </div>
     </div>
