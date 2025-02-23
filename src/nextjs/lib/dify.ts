@@ -35,8 +35,15 @@ if (!DIFY_MD_API_KEY || !DIFY_MD_API_URL) {
 export interface DifyResponse {
   message: string
   conversation_id: string | null
-  retriever_resources?: RetrieverResource[]
+  retriever_resources?: {
+    dataset_name: string
+    document_name: string
+    document_id: string
+    segment_id: string
+    dataset_id: string
+  }[]
 }
+
 
 // 参照情報の型定義
 export interface RetrieverResource {
@@ -192,59 +199,38 @@ interface FileUploadResponse {
   created_at: number;
 }
 
-// Functions
+
 export async function sendMessageToDify(message: string, userId: string): Promise<DifyResponse> {
-  try {
-    const response = await fetch(`${DIFY_API_URL}/chat-messages`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${DIFY_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        inputs: {},
-        query: message,
-        response_mode: "streaming",
-        user: userId, // LIFFから取得したユーザーIDを使用
-      }),
-    })
+  console.log("Difyリクエスト開始:", { message, userId })
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(`Dify APIリクエストが失敗しました。ステータス: ${response.status}: ${JSON.stringify(errorData)}`)
-    }
+  const response = await fetch(`${DIFY_API_URL}/chat-messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${DIFY_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      inputs: {},
+      query: message,
+      response_mode: "blocking",
+      user: userId,
+    }),
+  })
 
-    const reader = response.body?.getReader()
-    const decoder = new TextDecoder()
-    const result: DifyResponse = { message: "", conversation_id: null }
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(`Dify APIリクエストが失敗しました。ステータス: ${response.status}: ${JSON.stringify(errorData)}`)
+  }
 
-    while (true) {
-      const { done, value } = await reader!.read()
-      if (done) break
+  const data = await response.json()
+  console.log("Dify API応答:", data)
 
-      const chunk = decoder.decode(value)
-      const lines = chunk.split("\n")
-
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const data = JSON.parse(line.slice(6))
-          if (data.event === "message") {
-            result.message += data.data.answer
-          } else if (data.event === "message_end") {
-            result.conversation_id = data.data.conversation_id
-            result.retriever_resources = data.data.retriever_resources
-          }
-        }
-      }
-    }
-
-    return result
-  } catch (error) {
-    console.error("sendMessageToDifyでエラーが発生しました:", error)
-    throw error
+  return {
+    message: data.answer,
+    conversation_id: data.conversation_id,
+    retriever_resources: data.metadata?.retriever_resources || [],
   }
 }
-
 
 export async function getMessages(conversationId: string, user: string, firstId?: string, limit = 20) {
   const response = await fetch(

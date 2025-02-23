@@ -50,7 +50,6 @@ export function BottomNav() {
             <div className={`${pathname === item.href ? "brightness-0 invert" : ""}`}>
               <item.icon />
             </div>
-            {/* <span className="text-xs mt-1">{item.label}</span> */}
           </Link>
         ))}
       </div>

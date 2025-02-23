@@ -5,6 +5,7 @@ import type { AppProps } from "next/app"
 import { inter } from "@/styles/fonts"
 import "@/styles/globals.css"
 import liff from "@line/liff"
+import { UserProvider } from "@/lib/userContext"
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   const [liffObject, setLiffObject] = useState<typeof liff | null>(null)
@@ -36,9 +37,11 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   }
 
   return (
-    <div className={`${inter.variable} font-sans`}>
-      <Component {...enhancedPageProps} />
-    </div>
+    <UserProvider>
+      <div className={`${inter.variable} font-sans`}>
+        <Component {...enhancedPageProps} />
+      </div>
+    </UserProvider>
   )
 }
 

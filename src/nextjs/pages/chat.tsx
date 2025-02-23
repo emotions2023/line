@@ -1,15 +1,20 @@
 "use client"
 
 import type React from "react"
-
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { BottomNav } from "@/components/bottom-nav"
 import { Input } from "@/components/ui/input"
 import { sendMessageToDify } from "@/lib/dify"
 import { SegmentViewer } from "@/components/segment-viewer"
 import { ExternalLink } from "lucide-react"
-import { initializeLiff, getLiffUserId, isLoggedIn } from "@/lib/liff"
+import { useUser } from "@/lib/userContext"
+import type { Liff } from "@line/liff"
+
+interface ChatPageProps {
+  liff: Liff | null
+  liffError: string | null
+}
 
 interface Reference {
   dataset_name: string
@@ -32,41 +37,27 @@ interface SelectedDocument {
   datasetId: string
 }
 
-export default function ChatPage() {
+export default function ChatPage({ liff, liffError }: ChatPageProps) {
+  const { userId, setUserId } = useUser()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
   const [selectedDocument, setSelectedDocument] = useState<SelectedDocument | null>(null)
-  const [isInitializing, setIsInitializing] = useState(true)
 
   useEffect(() => {
-    const init = async () => {
-      try {
-        await initializeLiff()
-        if (isLoggedIn()) {
-          const id = await getLiffUserId()
-          setUserId(id)
-        }
-      } catch (error) {
-        console.error("LIFFの初期化に失敗しました", error)
-      } finally {
-        setIsInitializing(false)
+    if (liff && !userId) {
+      if (liff.isLoggedIn()) {
+        liff
+          .getProfile()
+          .then((profile) => {
+            setUserId(profile.userId)
+          })
+          .catch((err) => console.error("Error getting profile:", err))
+      } else {
+        liff.login()
       }
     }
-
-    init()
-  }, [])
-
-  const handleLogin = async () => {
-    try {
-      await getLiffUserId()
-      const id = await getLiffUserId()
-      setUserId(id)
-    } catch (error) {
-      console.error("ログインに失敗しました", error)
-    }
-  }
+  }, [liff, userId, setUserId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -125,17 +116,12 @@ export default function ChatPage() {
     )
   }
 
-  if (isInitializing) {
-    return <div className="flex justify-center items-center h-screen">初期化中...</div>
+  if (liffError) {
+    return <div className="flex justify-center items-center h-screen">LIFF error: {liffError}</div>
   }
 
   if (!userId) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen">
-        <p className="mb-4">LINEアカウントでログインしてください</p>
-        <Button onClick={handleLogin}>ログイン</Button>
-      </div>
-    )
+    return <div className="flex justify-center items-center h-screen">Loading...</div>
   }
 
   return (
